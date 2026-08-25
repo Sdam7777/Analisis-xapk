@@ -1,6 +1,6 @@
-# Laporan Kunci Dekripsi & Analisis Celah Keamanan (Vulnerabilities) Wibuku 1.4.4
+# Laporan Kunci Dekripsi & Audit Celah Keamanan (Vulnerabilities) Wibuku 1.4.4
 
-Dokumen ini berisi spesifikasi teknis mengenai **Kunci Dekripsi Aplikasi** serta hasil audit **Celah Keamanan (*Security Vulnerabilities*)** pada aplikasi Android **Wibuku v1.4.4** (`Wibuku_1.4.4.xapk`).
+Dokumen ini berisi spesifikasi teknis mengenai **Kunci Dekripsi Aplikasi** serta hasil audit **Celah Keamanan (*Security Vulnerabilities*)** mendalam pada aplikasi Android **Wibuku v1.4.4** (`Wibuku_1.4.4.xapk`).
 
 ---
 
@@ -34,14 +34,28 @@ Aplikasi Wibuku menggunakan enkripsi string kustom berbasis hash SHA-256 dan sub
 
 ---
 
-## 2. Audit Celah Keamanan (Vulnerabilities Assessment)
-
-Berdasarkan hasil pengujian statis dan penelusuran arsitektur jaringan pada APK Wibuku 1.4.4, ditemukan beberapa celah keamanan (*vulnerabilities*) dengan tingkat keparahan bervariasi:
+## 2. Audit Celah Keamanan Mendalam (Advanced Vulnerabilities)
 
 ---
 
-### Celah 1: Hardcoded Master Decryption Seed pada Client (High Severity)
+### Celah 1: Insecure WebView Javascript Interface Origin Validation (High Severity)
 * **Vulnerability ID**: `WBK-VULN-001`
+* **Kategori**: Insecure WebView Implementation / Cross-Site Scripting Bridge
+* **Tingkat Keparahan**: **HIGH** (Tinggi)
+* **Deskripsi**:
+  Aplikasi mengekspos Javascript Interface `WIBUKU_NATIVE` (`z60.smali` / `ClanHallFragment`) dan `Android` (`is3.smali` / `PremiumNewFragment`) ke WebView tanpa memvalidasi domain URL yang dimuat (*URL Origin Check*).
+* **Komponen Terdampak**:
+  - `ClanHallFragment` (`WIBUKU_NATIVE` -> `openMemberProfile`, `hallLiveChatLine`, `applyWatchState`, `pickWatchAnime`)
+  - `PremiumNewFragment` (`Android` -> `saveQrImage`)
+* **Dampak**:
+  Jika WebView memuat halaman web eksternal atau terkena serangan *Man-in-the-Middle* (MITM), halaman penyerang dapat mengeksekusi metode native Android untuk memanipulasi obrolan clan, membuka profil pengguna lain, atau mengeksekusi aksi berbasis UI secara otomatis.
+* **Mitigasi**:
+  Lakukan verifikasi domain terpercaya (misal hanya domain `*.wibuku.app`) pada callback `shouldOverrideUrlLoading` sebelum mendaftarkan `addJavascriptInterface`.
+
+---
+
+### Celah 2: Hardcoded Master Decryption Seed pada Client (High Severity)
+* **Vulnerability ID**: `WBK-VULN-002`
 * **Kategori**: Cryptographic Issues / Hardcoded Secrets
 * **Tingkat Keparahan**: **HIGH** (Tinggi)
 * **Deskripsi**:
@@ -53,8 +67,8 @@ Berdasarkan hasil pengujian statis dan penelusuran arsitektur jaringan pada APK 
 
 ---
 
-### Celah 2: Keberadaan Endpoint Dev Login & Bypass Header (High Severity)
-* **Vulnerability ID**: `WBK-VULN-002`
+### Celah 3: Keberadaan Endpoint Dev Login & Bypass Header (High Severity)
+* **Vulnerability ID**: `WBK-VULN-003`
 * **Kategori**: Broken Authentication / Exposed Debug Features
 * **Tingkat Keparahan**: **HIGH** (Tinggi)
 * **Deskripsi**:
@@ -73,8 +87,21 @@ Berdasarkan hasil pengujian statis dan penelusuran arsitektur jaringan pada APK 
 
 ---
 
-### Celah 3: Client-Side Parameter Control (`admin_override` Parameter) (Medium Severity)
-* **Vulnerability ID**: `WBK-VULN-003`
+### Celah 4: Izin Traffic HTTP Plaintext (`android:usesCleartextTraffic="true"`) (Medium Severity)
+* **Vulnerability ID**: `WBK-VULN-004`
+* **Kategori**: Network Security Configuration / Plaintext Communication
+* **Tingkat Keparahan**: **MEDIUM** (Sedang)
+* **Deskripsi**:
+  `AndroidManifest.xml` secara eksplisit mengaktifkan `android:usesCleartextTraffic="true"`.
+* **Dampak**:
+  Aplikasi diizinkan untuk mengirimkan data HTTP tanpa enkripsi TLS. Dalam jaringan Wi-Fi publik, penyerang dapat mengintip (*sniffing*) atau memodifikasi paket data yang dikirim melalui HTTP plaintext.
+* **Mitigasi**:
+  Atur `android:usesCleartextTraffic="false"` pada `AndroidManifest.xml` dan terapkan `networkSecurityConfig` yang mewajibkan seluruh koneksi menggunakan HTTPS.
+
+---
+
+### Celah 5: Client-Side Parameter Control (`admin_override` Parameter) (Medium Severity)
+* **Vulnerability ID**: `WBK-VULN-005`
 * **Kategori**: Broken Access Control / Insecure Direct Object Reference
 * **Tingkat Keparahan**: **MEDIUM** (Sedang)
 * **Deskripsi**:
@@ -91,8 +118,8 @@ Berdasarkan hasil pengujian statis dan penelusuran arsitektur jaringan pada APK 
 
 ---
 
-### Celah 4: Terbuka & Dapat Di-spoofingnya Identifikasi Perangkat (`device_hash`) (Medium Severity)
-* **Vulnerability ID**: `WBK-VULN-004`
+### Celah 6: Terbuka & Dapat Di-spoofingnya Identifikasi Perangkat (`device_hash`) (Medium Severity)
+* **Vulnerability ID**: `WBK-VULN-006`
 * **Kategori**: Insecure Device Fingerprinting / Spoofing
 * **Tingkat Keparahan**: **MEDIUM** (Sedang)
 * **Deskripsi**:
@@ -104,8 +131,8 @@ Berdasarkan hasil pengujian statis dan penelusuran arsitektur jaringan pada APK 
 
 ---
 
-### Celah 5: Kurangnya SSL Pinning & Potensi Intersepsi Traffic (Low to Medium Severity)
-* **Vulnerability ID**: `WBK-VULN-005`
+### Celah 7: Kurangnya SSL Certificate Pinning (Low to Medium Severity)
+* **Vulnerability ID**: `WBK-VULN-007`
 * **Kategori**: Transport Layer Security / Missing Certificate Pinning
 * **Tingkat Keparahan**: **MEDIUM** (Sedang)
 * **Deskripsi**:
@@ -119,16 +146,18 @@ Berdasarkan hasil pengujian statis dan penelusuran arsitektur jaringan pada APK 
 
 ## 3. Matriks Ringkasan Celah Keamanan
 
-| Vuln ID | Nama Celah Keamanan | Keparahan | Komponen Terdampak | Status Remediasi |
+| Vuln ID | Nama Celah Keamanan | Keparahan | Komponen Terdampak | Status Remediation |
 | :--- | :--- | :--- | :--- | :--- |
-| **WBK-VULN-001** | Hardcoded Master Decryption Seed | **HIGH** | `kf3.java`, `ce5.java`, `gc4.java` | Perlu Perbaikan |
-| **WBK-VULN-002** | Exposed Dev Login & Bypass Header | **HIGH** | `user/devlogin`, `bl3.java` | Perlu Perbaikan |
-| **WBK-VULN-003** | Client-Controlled `admin_override` | **MEDIUM** | `friend/reject`, `bl3.java` | Perlu Perbaikan |
-| **WBK-VULN-004** | Spoofable Device Fingerprint Hash | **MEDIUM** | `device_hash`, `lr3.java` | Perlu Perbaikan |
-| **WBK-VULN-005** | Missing SSL Certificate Pinning | **MEDIUM** | Network Stack (`aj3.java`) | Perlu Perbaikan |
+| **WBK-VULN-001** | Insecure WebView Javascript Interface | **HIGH** | `WIBUKU_NATIVE`, `ClanHallFragment` | Perlu Perbaikan |
+| **WBK-VULN-002** | Hardcoded Master Decryption Seed | **HIGH** | `kf3.java`, `ce5.java`, `gc4.java` | Perlu Perbaikan |
+| **WBK-VULN-003** | Exposed Dev Login & Bypass Header | **HIGH** | `user/devlogin`, `bl3.java` | Perlu Perbaikan |
+| **WBK-VULN-004** | Allowed Cleartext HTTP Traffic | **MEDIUM** | `AndroidManifest.xml` | Perlu Perbaikan |
+| **WBK-VULN-005** | Client-Controlled `admin_override` | **MEDIUM** | `friend/reject`, `bl3.java` | Perlu Perbaikan |
+| **WBK-VULN-006** | Spoofable Device Fingerprint Hash | **MEDIUM** | `device_hash`, `lr3.java` | Perlu Perbaikan |
+| **WBK-VULN-007** | Missing SSL Certificate Pinning | **MEDIUM** | Network Stack (`aj3.java`) | Perlu Perbaikan |
 
 ---
 
 ## 4. Kesimpulan & Rekomendasi Tambahan
 
-Sistem komunikasi dan proteksi aplikasi **Wibuku 1.4.4** memiliki beberapa titik kerentanan signifikan, terutama terkait hardcoded secret keys di sisi client dan exposed development endpoint (`user/devlogin`). Diharapkan pengembang menguatkan verifikasi otorisasi di sisi server (Server-Side Authorization), mengimplementasikan Play Integrity API, dan menghapus endpoint debug sebelum merilis versi aplikasi berikutnya.
+Sistem keamanan aplikasi **Wibuku 1.4.4** memiliki beberapa celah kritis (*High Severity*) pada sisi WebView Interface yang tidak divalidasi, pengalokasian kunci dekripsi statis di sisi client, serta terbukanya endpoint developer login (`user/devlogin`). Diperlukan perbaikan komprehensif pada arsitektur autentikasi, pembatasan asal domain WebView (*Origin Validation*), serta pemindahan verifikasi hak akses seluruhnya ke sisi server (*Server-Side Authorization*).
